@@ -1,12 +1,1 @@
-[submodule "ClickLib"]
-	path = ClickLib
-	url = https://github.com/AtmoOmen/ClickLib.git
-	branch = net8.0
-[submodule "EdgeTTS"]
-	path = EdgeTTS
-	url = https://github.com/AtmoOmen/EdgeTTS.git
-	branch = master
-[submodule "OmenTools"]
-	path = OmenTools
-	url = https://github.com/AtmoOmen/OmenTools.git
-	branch = main
+

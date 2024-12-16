@@ -21,9 +21,10 @@
         <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
         <PlatformTarget>AnyCPU</PlatformTarget>
-        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <BaseOutputPath>$(SolutionDir)bin</BaseOutputPath>
         <SatelliteResourceLanguages>xxx</SatelliteResourceLanguages>
+        <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+        <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -93,16 +94,13 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\ClickLib\ClickLib\ClickLib.csproj" />
-        <ProjectReference Include="..\OmenTools\OmenTools.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
         <Reference Include="DailyRoutines">
             <HintPath>$(DailyRoutinesPath)\DailyRoutines.dll</HintPath>
+            <Private>false</Private>
         </Reference>
         <Reference Include="TinyPinyin">
             <HintPath>$(DailyRoutinesPath)\TinyPinyin.dll</HintPath>
+            <Private>false</Private>
         </Reference>
     </ItemGroup>
 
