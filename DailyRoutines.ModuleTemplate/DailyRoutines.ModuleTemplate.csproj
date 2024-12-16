@@ -102,6 +102,18 @@
             <HintPath>$(DailyRoutinesPath)\TinyPinyin.dll</HintPath>
             <Private>false</Private>
         </Reference>
+        <Reference Include="OmenTools">
+            <HintPath>$(DailyRoutinesPath)\OmenTools.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="ClickLib">
+            <HintPath>$(DailyRoutinesPath)\ClickLib.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="EdgeTTS">
+            <HintPath>$(DailyRoutinesPath)\EdgeTTS.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
     </ItemGroup>
 
 </Project>
