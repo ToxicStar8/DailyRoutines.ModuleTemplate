@@ -8,14 +8,14 @@ using OmenTools;
 using OmenTools.Helpers;
 using OmenTools.Infos;
 
-namespace DailyRoutines.Modules;
+namespace DailyRoutines.ModuleTemplate;
 
-public class AutoSoulsow : DailyModuleBase
+public class AutoSoulsowModuleTemplate : DailyModuleBase
 {
     public override ModuleInfo Info => new()
     {
-        Title = GetLoc("AutoSoulsowTitle"),
-        Description = GetLoc("AutoSoulsowDescription"),
+        Title = "自动播魂种 (模块模板)",
+        Description = "Daily Routines 本地模块模板",
         Category = ModuleCategories.Action,
     };
 
