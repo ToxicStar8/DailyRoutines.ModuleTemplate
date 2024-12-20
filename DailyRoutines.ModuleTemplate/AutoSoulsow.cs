@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using DailyRoutines.Abstracts;
+using DailyRoutines.Helpers;
 using DailyRoutines.Managers;
 using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 using OmenTools;
 using OmenTools.Helpers;
@@ -26,6 +28,19 @@ public class AutoSoulsowModuleTemplate : DailyModuleBase
         DService.ClientState.TerritoryChanged += OnZoneChanged;
         DService.DutyState.DutyRecommenced    += OnDutyRecommenced;
         DService.Condition.ConditionChange    += OnConditionChanged;
+    }
+
+    public override void ConfigUI()
+    {
+        ImGui.Text("测试用文本");
+
+        if (ImGui.Button("测试用按钮"))
+        {
+            NotifyHelper.Chat("测试点击了一下");
+            HelpersOm.NotificationInfo("测试点了一下");
+        }
+        
+        ImGui.Text("现在又改了一点东西");
     }
 
     // 重新挑战
