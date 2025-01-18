@@ -74,13 +74,18 @@ public unsafe class AutoCountBlacks : DailyModuleBase
     {
         InfoProxyBlackListUpdateHook.Original(outBlockResult, accountId, contentId);
 
+        var name = SeString.Parse(outBlockResult->BlockedCharacterPtr->Name);
+        NotifyHelper.Chat($"触发更新了黑名单，Type={outBlockResult->Type}  Index={outBlockResult->BlockedCharacterIndex}  " +
+            $"Id={outBlockResult->BlockedCharacterPtr->Id} Name={name.ExtractText()}");
         var characterId = outBlockResult->BlockedCharacterPtr->Id;
         if (outBlockResult->Type is InfoProxyBlacklist.BlockResultType.NotBlocked)
         {
+            NotifyHelper.Chat($"移除操作 characterId=" + characterId);
             BlackHashSet.Remove(characterId);
         }
         else
         {
+            NotifyHelper.Chat($"添加操作 characterId=" + characterId);
             BlackHashSet.Add(characterId);
         }
     }
