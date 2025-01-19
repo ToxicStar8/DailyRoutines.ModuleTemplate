@@ -42,8 +42,8 @@ public unsafe class AutoCountBlacks : DailyModuleBase
 
     public override ModuleInfo Info => new()
     {
-        Title = GetLoc("DailyRoutines-AutoCountBlacks-Title"),
-        Description = GetLoc("DailyRoutines-AutoCountBlacks-Desc"),
+        Title = GetLoc("AutoCountBlacks-Title"),
+        Description = GetLoc("AutoCountBlacks-Desc"),
         Category = ModuleCategories.General,
         Author = ["ToxicStar"],
     };
@@ -52,20 +52,13 @@ public unsafe class AutoCountBlacks : DailyModuleBase
     {
         ModuleConfig = LoadConfig<Config>() ?? new();
 
+        ResetBlackList();
+
         InfoProxyBlackListUpdateHook ??= InfoProxyBlackListUpdateSig.GetHook<InfoProxyBlackListUpdateDelegate>(InfoProxyBlackListUpdateDetour);
         InfoProxyBlackListUpdateHook.Enable();
 
-        DtrEntry = DService.DtrBar.Get("DailyRoutines-AutoCountBlacks-DtrEntry");
+        DtrEntry = DService.DtrBar.Get("DailyRoutines-AutoCountBlacks");
         DtrEntry.Shown = true;
-
-        //每次启动时，统计一次
-        var tempHashSet = new HashSet<ulong>();
-        foreach (var blockCharacter in InfoProxyBlacklist.Instance()->BlockedCharacters)
-        {
-            //blockCharacter.Id = accountId for new, contentId for old
-            tempHashSet.Add(blockCharacter.Id);
-        }
-        BlackHashSet = tempHashSet;
 
         FrameworkManager.Register(false, OnUpdate);
     }
@@ -74,41 +67,57 @@ public unsafe class AutoCountBlacks : DailyModuleBase
     {
         InfoProxyBlackListUpdateHook.Original(outBlockResult, accountId, contentId);
 
-        var name = SeString.Parse(outBlockResult->BlockedCharacterPtr->Name);
-        NotifyHelper.Chat($"触发更新了黑名单，Type={outBlockResult->Type}  Index={outBlockResult->BlockedCharacterIndex}  " +
-            $"Id={outBlockResult->BlockedCharacterPtr->Id} Name={name.ExtractText()}");
-        var characterId = outBlockResult->BlockedCharacterPtr->Id;
-        if (outBlockResult->Type is InfoProxyBlacklist.BlockResultType.NotBlocked)
+        //触发了黑名单更新
+        if (outBlockResult->BlockedCharacterIndex != BlackHashSet.Count)
         {
-            NotifyHelper.Chat($"移除操作 characterId=" + characterId);
-            BlackHashSet.Remove(characterId);
+            ResetBlackList();
         }
-        else
+    }
+
+    private static void ResetBlackList()
+    {
+        //启动/更新时，统计一次
+        var tempHashSet = new HashSet<ulong>();
+        foreach (var blockCharacter in InfoProxyBlacklist.Instance()->BlockedCharacters)
         {
-            NotifyHelper.Chat($"添加操作 characterId=" + characterId);
-            BlackHashSet.Add(characterId);
+            if(blockCharacter.Id is not 0)
+            {
+                //blockCharacter.Id = accountId for new, contentId for old
+                tempHashSet.Add(blockCharacter.Id);
+
+                //BlockedCharacters只增不减，必须使用BlockedCharactersCount处理变化后的数量
+                if (tempHashSet.Count >= InfoProxyBlacklist.Instance()->BlockedCharactersCount)
+                {
+                    break;
+                }
+            }
         }
+        BlackHashSet = tempHashSet;
     }
 
     private static void OnUpdate(IFramework _)
     {
         if (!Throttler.Throttle("DailyRoutines-AutoCountBlacks-OnUpdate")) return;
-        if (DtrEntry is { }) return;
+        if (DtrEntry is null) return;
         if (DService.ClientState.LocalPlayer is not { } localPlayer) return;
 
         var tooltip = new StringBuilder();
         int blackNum = 0;
         var myPos = localPlayer.Position;
-        var length = DService.ObjectTable.Length >= 200 ? 200 : DService.ObjectTable.Length;
-        for (int i = 0; i < length; i++)
+        var checkRange = ModuleConfig.CheckRange * ModuleConfig.CheckRange;
+        foreach (var obj in DService.ObjectTable)
         {
-            var obj = DService.ObjectTable[i];
-            if (obj is not { } && obj.ObjectKind is ObjectKind.Player)
+            if (obj is not null && obj.ObjectKind is ObjectKind.Player)
             {
                 var needCheckPos = obj.Position;
-                if (Vector3.Distance(myPos, needCheckPos) <= ModuleConfig.CheckRange)
+                if (Vector3.DistanceSquared(myPos, needCheckPos) <= checkRange)
                 {
                     var chara = (BattleChara*)obj.Address;
+                    if (chara is null)
+                    {
+                        continue;
+                    }
+
                     if (!PresetData.TryGetCNWorld(chara->HomeWorld, out var world))
                     {
                         continue;
@@ -124,15 +133,16 @@ public unsafe class AutoCountBlacks : DailyModuleBase
             }
         }
 
-        DtrEntry.Text = string.Format(GetLoc("DailyRoutines-AutoCountBlacks-DtrEntry-Text"), blackNum.ToString());
+        DtrEntry.Text = string.Format(GetLoc("AutoCountBlacks-DtrEntry-Text"), blackNum.ToString());
         DtrEntry.Tooltip = tooltip.ToString().Trim();
     }
 
     public override void ConfigUI()
     {
-        if (ImGui.InputInt(GetLoc("DailyRoutines-AutoCountBlacks-Range"), ref ModuleConfig.CheckRange))
+        if (ImGui.InputInt(GetLoc("AutoCountBlacks-Range"), ref ModuleConfig.CheckRange))
         {
             ModuleConfig.CheckRange = Math.Max(1, ModuleConfig.CheckRange);
+            SaveConfig(ModuleConfig);
         }
     }
 
