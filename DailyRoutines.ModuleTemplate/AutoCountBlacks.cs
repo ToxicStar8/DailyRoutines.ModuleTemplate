@@ -80,7 +80,7 @@ public unsafe class AutoCountBlacks : DailyModuleBase
         var tempHashSet = new HashSet<ulong>();
         foreach (var blockCharacter in InfoProxyBlacklist.Instance()->BlockedCharacters)
         {
-            if(blockCharacter.Id is not 0)
+            if (blockCharacter.Id is not 0)
             {
                 //blockCharacter.Id = accountId for new, contentId for old
                 tempHashSet.Add(blockCharacter.Id);
@@ -97,7 +97,7 @@ public unsafe class AutoCountBlacks : DailyModuleBase
 
     private static void OnUpdate(IFramework _)
     {
-        if (!Throttler.Throttle("DailyRoutines-AutoCountBlacks-OnUpdate")) return;
+        if (!Throttler.Throttle("AutoCountBlacks-OnUpdate")) return;
         if (DtrEntry is null) return;
         if (DService.ClientState.LocalPlayer is not { } localPlayer) return;
 
@@ -142,6 +142,10 @@ public unsafe class AutoCountBlacks : DailyModuleBase
         if (ImGui.InputInt(GetLoc("AutoCountBlacks-Range"), ref ModuleConfig.CheckRange))
         {
             ModuleConfig.CheckRange = Math.Max(1, ModuleConfig.CheckRange);
+        }
+
+        if (ImGui.IsItemDeactivatedAfterEdit())
+        {
             SaveConfig(ModuleConfig);
         }
     }
