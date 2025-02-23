@@ -97,7 +97,7 @@ public unsafe class AutoCountBlacklisted : DailyModuleBase
     private static void OnUpdate(IFramework _)
     {
         if (!Throttler.Throttle("AutoCountBlacks-OnUpdate")) return;
-
+        
         if (DtrEntry is null) return;
         if (DService.ClientState.LocalPlayer is not { } localPlayer) return;
 
@@ -127,9 +127,9 @@ public unsafe class AutoCountBlacklisted : DailyModuleBase
             }
         }
 
-        string message = GetLoc("AutoCountBlacks-DtrEntry-Text", tooltip.ToString().Trim());
-        if (ModuleConfig.SendNotification && LastCheckNum < blackNum)
+        if (LastCheckNum < blackNum)
         {
+            var message = GetLoc("AutoCountBlacks-DtrEntry-Text", tooltip.ToString().Trim());
             if (ModuleConfig.SendChat) Chat(message);
             if (ModuleConfig.SendNotification) NotificationInfo(message);
             if (ModuleConfig.SendTTS) Speak(message);
