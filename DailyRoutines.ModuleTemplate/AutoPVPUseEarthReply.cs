@@ -32,7 +32,7 @@ using OmenTools.Infos;
 
 namespace DailyRoutines.Modules;
 
-public unsafe class AutoPVPEarthReply : DailyModuleBase
+public unsafe class AutoPVPUseEarthReply : DailyModuleBase
 {
     private static Config ModuleConfig = null!;
     //金刚极意
@@ -46,18 +46,16 @@ public unsafe class AutoPVPEarthReply : DailyModuleBase
 
     public override ModuleInfo Info => new()
     {
-        //Title = GetLoc("AutoPVPEarthReplyTitle"),
-        //Description = GetLoc("AutoPVPEarthReplyDescription"),
-        Title = "自动金刚转轮",
-        Description = "在战场时，自动在技能结束前使用你的金刚转轮",
-        Category = ModuleCategories.Combat,
+        Title = GetLoc("AutoPVPUseEarthReplyTitle"),
+        Description = GetLoc("AutoPVPUseEarthReplyDescription"),
+        Category = ModuleCategories.Action,
         Author = ["ToxicStar"],
     };
 
     public override void Init()
     {
         ModuleConfig ??= new Config();
-        TaskHelper ??= new TaskHelper { TimeLimitMS = 15_000 };
+        TaskHelper ??= new TaskHelper { TimeLimitMS = 8_000 };
         UseActionManager.Register(OnUseAction);
     }
 
@@ -66,24 +64,19 @@ public unsafe class AutoPVPEarthReply : DailyModuleBase
         if (!GameMain.IsInPvPArea() && !GameMain.IsInPvPInstance()) return;
         if (DService.ClientState.LocalPlayer is not { ClassJob.RowId: 20 }) return;
 
-        DService.Log.Debug($"武僧职业在PVP区域使用技能 result={result} actionType={actionType} actionID={actionID}");
-
-        if (result && actionType is ActionType.PvPAction && actionID is _useAction)
+        if (result && actionType is ActionType.Action && actionID is _useAction)
         {
-            DService.Log.Debug("加入了任务队列");
             TaskHelper.Abort();
-            //todo:测试，后续改为14.5秒
-            TaskHelper.DelayNext(2_000, $"Delay_UseAction{_afterAction}", false, 1);
-            //TaskHelper.DelayNext(14_500, $"Delay_UseAction{_afterAction}", false, 1);
+            TaskHelper.DelayNext(8_000, $"Delay_UseAction{_afterAction}", false, 1);
             TaskHelper.Enqueue(() =>
             {
                 if (DService.ClientState.LocalPlayer is not { } localPlayer) return;
 
                 var statusManager = localPlayer.ToBCStruct()->StatusManager;
-                if (statusManager.HasStatus(_runStatus) && !ModuleConfig.IsRunningUse) return;
-                if (statusManager.HasStatus(_defStatus) && !ModuleConfig.IsDefendingUse) return;
+                if (!ModuleConfig.IsRunningUse   && statusManager.HasStatus(_runStatus)) return;
+                if (!ModuleConfig.IsDefendingUse && statusManager.HasStatus(_defStatus)) return;
 
-                UseActionManager.UseAction(ActionType.PvPAction, _afterAction);
+                UseActionManager.UseAction(ActionType.Action, _afterAction);
 
             }, $"UseAction_{_afterAction}", 500, true, 1);
         }
@@ -91,12 +84,10 @@ public unsafe class AutoPVPEarthReply : DailyModuleBase
 
     public override void ConfigUI()
     {
-        //if (ImGui.Checkbox(GetLoc("AutoPVPEarthReplyIsRunningUse"), ref ModuleConfig.IsRunningUse))
-        if (ImGui.Checkbox("疾跑状态中也使用", ref ModuleConfig.IsRunningUse))
+        if (ImGui.Checkbox(GetLoc("AutoPVPUseEarthReplyIsRunningUse"), ref ModuleConfig.IsRunningUse))
             SaveConfig(ModuleConfig);
 
-        //if (ImGui.Checkbox(GetLoc("AutoPVPEarthReplyIsDefendingUse"), ref ModuleConfig.IsDefendingUse))
-        if (ImGui.Checkbox("防御状态中也使用", ref ModuleConfig.IsDefendingUse))
+        if (ImGui.Checkbox(GetLoc("AutoPVPUseEarthReplyIsDefendingUse"), ref ModuleConfig.IsDefendingUse))
             SaveConfig(ModuleConfig);
     }
 
@@ -108,7 +99,7 @@ public unsafe class AutoPVPEarthReply : DailyModuleBase
 
     public class Config : ModuleConfiguration
     {
-        public bool IsRunningUse = true;            //疾跑状态中也使用
-        public bool IsDefendingUse = true;          //防御状态中也使用
+        public bool IsRunningUse = false;            //疾跑状态中也使用
+        public bool IsDefendingUse = false;          //防御状态中也使用
     }
 }
