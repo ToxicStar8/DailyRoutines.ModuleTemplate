@@ -10,6 +10,7 @@ using DailyRoutines.Helpers;
 using DailyRoutines.Infos;
 using DailyRoutines.Managers;
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.JobGauge.Types;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.Gui.Dtr;
 using Dalamud.Game.Text.SeStringHandling;
@@ -18,6 +19,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using FFXIVClientStructs.FFXIV.Client.System.Scheduler;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
@@ -32,103 +34,81 @@ namespace DailyRoutines.Modules;
 
 public unsafe class AutoPVPEarthReply : DailyModuleBase
 {
-    private static readonly CompSig FreePortraitProgressSig = new("48 89 5C 24 ?? 4C 8B 91 ?? ?? ?? ?? 33 C0");
-    private delegate void InfoProxyBlackListUpdateDelegate(InfoProxyBlacklist.BlockResult* outBlockResult, ulong accountId, ulong contentId);
-    private static Hook<InfoProxyBlackListUpdateDelegate>? FreePortraitProgressHook;
+    private static Config ModuleConfig = null!;
+    //金刚极意
+    private const uint _useAction = 29482;
+    //金刚转轮
+    private const uint _afterAction = 29483;
+    //疾跑状态
+    private const uint _runStatus = 1342;
+    //防御状态
+    private const uint _defStatus = 3054;
 
     public override ModuleInfo Info => new()
     {
-        //Title = GetLoc("FreePortraitProgressTitle"),
-        //Description = GetLoc("FreePortraitProgressDescription"),
-        Title = "测试标题",
-        Description = "测试说明",
+        //Title = GetLoc("AutoPVPEarthReplyTitle"),
+        //Description = GetLoc("AutoPVPEarthReplyDescription"),
+        Title = "自动金刚转轮",
+        Description = "在战场时，自动在技能结束前使用你的金刚转轮",
         Category = ModuleCategories.Combat,
         Author = ["ToxicStar"],
     };
 
     public override void Init()
     {
-        TaskHelper ??= new TaskHelper { TimeLimitMS = 30_000 };
-
-        DService.ClientState.TerritoryChanged += OnZoneChanged;
-        DService.DutyState.DutyRecommenced += OnDutyRecommenced;
-        DService.Condition.ConditionChange += OnConditionChanged;
+        ModuleConfig ??= new Config();
+        TaskHelper ??= new TaskHelper { TimeLimitMS = 15_000 };
+        UseActionManager.Register(OnUseAction);
     }
 
-    // 重新挑战
-    private void OnDutyRecommenced(object? sender, ushort e)
+    private void OnUseAction(bool result, ActionType actionType, uint actionID, ulong targetID, uint extraParam, ActionManager.UseActionMode queueState, uint comboRouteID, bool* outOptAreaTargeted)
     {
-        TaskHelper.Abort();
-        TaskHelper.Enqueue(CheckCurrentJob);
-    }
+        if (!GameMain.IsInPvPArea() && !GameMain.IsInPvPInstance()) return;
+        if (DService.ClientState.LocalPlayer is not { ClassJob.RowId: 20 }) return;
 
-    // 进入副本
-    private void OnZoneChanged(ushort zone)
-    {
-        if (LuminaCache.GetRow<TerritoryType>(zone) is not { ContentFinderCondition.Row: > 0 }) return;
+        DService.Log.Debug($"武僧职业在PVP区域使用技能 result={result} actionType={actionType} actionID={actionID}");
 
-        TaskHelper.Abort();
-        TaskHelper.Enqueue(CheckCurrentJob);
-    }
-
-    // 战斗状态
-    private void OnConditionChanged(ConditionFlag flag, bool value)
-    {
-        if (flag is not ConditionFlag.InCombat) return;
-
-        TaskHelper.Abort();
-        if (!value) TaskHelper.Enqueue(CheckCurrentJob);
-    }
-
-    private bool? CheckCurrentJob()
-    {
-        if (InfosOm.BetweenAreas || !HelpersOm.IsScreenReady() || InfosOm.OccupiedInEvent) return false;
-        if (DService.Condition[ConditionFlag.InCombat] ||
-            DService.ClientState.LocalPlayer is not { ClassJob.Id: 39 } || !IsValidPVEDuty())
+        if (result && actionType is ActionType.PvPAction && actionID is _useAction)
         {
+            DService.Log.Debug("加入了任务队列");
             TaskHelper.Abort();
-            return true;
-        }
+            //todo:测试，后续改为14.5秒
+            TaskHelper.DelayNext(2_000, $"Delay_UseAction{_afterAction}", false, 1);
+            //TaskHelper.DelayNext(14_500, $"Delay_UseAction{_afterAction}", false, 1);
+            TaskHelper.Enqueue(() =>
+            {
+                if (DService.ClientState.LocalPlayer is not { } localPlayer) return;
 
-        TaskHelper.Enqueue(UseRelatedActions, "UseRelatedActions", 5_000, true, 1);
-        return true;
+                var statusManager = localPlayer.ToBCStruct()->StatusManager;
+                if (statusManager.HasStatus(_runStatus) && !ModuleConfig.IsRunningUse) return;
+                if (statusManager.HasStatus(_defStatus) && !ModuleConfig.IsDefendingUse) return;
+
+                UseActionManager.UseAction(ActionType.PvPAction, _afterAction);
+
+            }, $"UseAction_{_afterAction}", 500, true, 1);
+        }
     }
 
-    private unsafe bool? UseRelatedActions()
+    public override void ConfigUI()
     {
-        if (DService.ClientState.LocalPlayer is not { } localPlayer) return false;
-        var statusManager = localPlayer.ToBCStruct()->StatusManager;
+        //if (ImGui.Checkbox(GetLoc("AutoPVPEarthReplyIsRunningUse"), ref ModuleConfig.IsRunningUse))
+        if (ImGui.Checkbox("疾跑状态中也使用", ref ModuleConfig.IsRunningUse))
+            SaveConfig(ModuleConfig);
 
-        // 播魂种
-        if (statusManager.HasStatus(2594) || !HelpersOm.IsActionUnlocked(24387))
-        {
-            TaskHelper.Abort();
-            return true;
-        }
-
-        TaskHelper.Enqueue(() => UseActionManager.UseAction(ActionType.Action, 24387), $"UseAction_{24387}",
-                           5_000, true, 1);
-        TaskHelper.DelayNext(2_000);
-        TaskHelper.Enqueue(CheckCurrentJob, "SecondCheck", null, true, 1);
-        return true;
-    }
-
-    private static unsafe bool IsValidPVEDuty()
-    {
-        HashSet<uint> InvalidContentTypes = [16, 17, 18, 19, 31, 32, 34, 35];
-
-        var isPVP = GameMain.IsInPvPArea() || GameMain.IsInPvPInstance();
-        var contentData = LuminaCache.GetRow<ContentFinderCondition>(GameMain.Instance()->CurrentContentFinderConditionId);
-
-        return !isPVP && (contentData == null || !InvalidContentTypes.Contains(contentData.ContentType.Row));
+        //if (ImGui.Checkbox(GetLoc("AutoPVPEarthReplyIsDefendingUse"), ref ModuleConfig.IsDefendingUse))
+        if (ImGui.Checkbox("防御状态中也使用", ref ModuleConfig.IsDefendingUse))
+            SaveConfig(ModuleConfig);
     }
 
     public override void Uninit()
     {
-        DService.ClientState.TerritoryChanged -= OnZoneChanged;
-        DService.DutyState.DutyRecommenced -= OnDutyRecommenced;
-        DService.Condition.ConditionChange -= OnConditionChanged;
-
         base.Uninit();
+        UseActionManager.Unregister(OnUseAction);
+    }
+
+    public class Config : ModuleConfiguration
+    {
+        public bool IsRunningUse = true;            //疾跑状态中也使用
+        public bool IsDefendingUse = true;          //防御状态中也使用
     }
 }
